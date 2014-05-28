@@ -74,7 +74,11 @@ public class Graph {
 	}
 
 	public Node createNode() {
-		int nodeId = ++nodeCounter;
+		int nodeId = 0;
+
+		do {
+			nodeId = ++nodeCounter;
+		} while (getNode(nodeId) != null);
 		
 		return createNode(nodeId);
 	}
@@ -84,28 +88,41 @@ public class Graph {
 			Node newNode = new Node(nodeId);
 			
 			nodeList.add(newNode);
+			nodes.put(nodeId, newNode);
 			
-			return nodes.put(nodeId, newNode);
+			return newNode;
 		} else {
 			return getNode(nodeId);
 		}		
 	}
 	
 	public Edge createEdge(Node head, Node tail) {
-		// avoid self-loops
-		if (head == tail || head.getNodeId() == tail.getNodeId()) {
-			return null;
-		}
+		int edgeId = 0;
+		do {
+			edgeId = ++edgeCounter;
+		} while (getEdge(edgeId) != null);
 		
-		int edgeId = ++edgeCounter;
-		
-		Edge newEdge = new Edge(edgeId, head, tail);
-		head.getIncidentEdges().put(edgeId, newEdge);
-		tail.getIncidentEdges().put(edgeId, newEdge);
-		
-		edgeList.add(newEdge);
-		
-		return edges.put(edgeId, newEdge);
+		return createEdge(edgeId, head, tail);
+	}
+	
+	public Edge createEdge(int edgeId, Node head, Node tail) {
+		if (getEdge(edgeId) == null) {
+			// avoid self-loops
+			if (head == tail || head.getNodeId() == tail.getNodeId()) {
+				return null;
+			}
+			
+			Edge newEdge = new Edge(edgeId, head, tail);
+			head.getIncidentEdges().put(edgeId, newEdge);
+			tail.getIncidentEdges().put(edgeId, newEdge);
+			
+			edgeList.add(newEdge);
+			edges.put(edgeId, newEdge);
+			
+			return newEdge;
+		} else {
+			return getEdge(edgeId);
+		}		
 	}
 	
 	public Node removeNode(int nodeId) {
@@ -115,9 +132,10 @@ public class Graph {
 	}
 	
 	public Node removeNode(Node nodeToRemove) {
-		if (nodeToRemove != null) {			
-			for (Edge edge: nodeToRemove.getIncidentEdges().values()) {
-				removeEdge(edge.getEdgeId());
+		if (nodeToRemove != null) {
+			Set<Integer> incidentEdgesIds = new HashSet<Integer>(nodeToRemove.getIncidentEdges().keySet());
+			for (Integer edgeId: incidentEdgesIds) {
+				removeEdge(edgeId);
 			}
 			nodeList.remove(nodeToRemove);
 			nodes.remove(nodeToRemove.getNodeId());
@@ -153,6 +171,74 @@ public class Graph {
 		int randomIdx = rng.nextInt(getEdgeCount());
 		
 		return edgeList.get(randomIdx);
+	}
+	
+	public Graph clone() {
+		Graph clone = new Graph();
+		clone.nodeCounter = this.nodeCounter;
+		clone.edgeCounter = this.edgeCounter;
+		
+		for (Edge edge: getEdges()) {
+			Node head = edge.getHead();
+			Node tail = edge.getTail();
+			head = clone.createNode(head.getNodeId());
+			tail = clone.createNode(tail.getNodeId());
+			clone.createEdge(edge.getEdgeId(), head, tail);
+						
+		}
+		
+		return clone;
+	}
+	
+	private void contract() {
+		Edge edgeToRemove = pickRandomEdge();
+		Node head = edgeToRemove.getHead();
+		Node tail = edgeToRemove.getTail();
+		
+		// add new node to the graph, which will replace head and tail nodes
+		Node mergedNode = createNode();
+		// keep only edges different than head --> tail or tail --> head 
+		for (Edge edge: head.getIncidentEdges().values()) {
+			Node otherEndpoint = (edge.getHead() == head) ? edge.getTail() : edge.getHead();
+			if (otherEndpoint != tail) {
+				// keep edge
+				createEdge(mergedNode, otherEndpoint);
+			}
+		}
+		for (Edge edge: tail.getIncidentEdges().values()) {
+			Node otherEndpoint = (edge.getHead() == tail) ? edge.getTail() : edge.getHead();
+			if (otherEndpoint != head) {
+				// keep edge
+				createEdge(mergedNode, otherEndpoint);
+			}
+		}
+		// incident edges will also be removed
+		removeNode(head);
+		removeNode(tail);
+	}
+	
+	public int kargerMinCut() {		
+		int minCut = getEdgeCount();
+		
+		if (getNodeCount() > 2) {
+			long numIterations = Math.round(Math.pow(getNodeCount(), 2));
+			for (long i=0; i<numIterations; i++) {
+				Graph ithGraph = clone();
+				while (ithGraph.getNodeCount() > 2) {
+					ithGraph.contract();
+				}
+				
+				int ithMinCut = ithGraph.getEdgeCount();
+				
+				System.out.printf("Iteration #%d of %d - minimum cut is: %d\n", i+1, numIterations, ithMinCut);
+				
+				if (ithMinCut < minCut) {
+					minCut = ithMinCut;
+				}
+			}
+		}		
+		
+		return minCut;
 	}
 	
 }
