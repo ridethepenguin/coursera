@@ -1,4 +1,4 @@
-package org.coursera.algo005.mincut;
+package org.coursera.algo005.graph;
 
 import java.util.HashMap;
 import java.util.List;
