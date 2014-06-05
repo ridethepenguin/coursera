@@ -46,15 +46,17 @@ public class Graph {
 				for (int i=1; i<row.size(); i++) {
 					int tailNodeId = row.get(i);
 					String pairId = (headNodeId <= tailNodeId) ? (headNodeId + "-" + tailNodeId) : (tailNodeId + "-" + headNodeId);
-					if (!alreadyCreatedEdges.contains(pairId)) {
+					if (directed || !alreadyCreatedEdges.contains(pairId)) {
 						Node headNode = g.createNode(headNodeId);
 						Node tailNode = g.createNode(tailNodeId);
 						g.createEdge(headNode, tailNode);
 						alreadyCreatedEdges.add(pairId);
+					} else {
+						System.out.printf("Edge %s has been already created! Skipping...\n", pairId);
 					}
 				}
 			}
-			if (g.getNodeCount() % 100 == 0 && lastNodeCount != g.getNodeCount()) {
+			if (g.getNodeCount() % 1000 == 0 && lastNodeCount != g.getNodeCount()) {
 				System.out.printf("Graph has now %d nodes and %d edges...\n", g.getNodeCount(), g.getEdgeCount());
 				lastNodeCount = g.getNodeCount();
 			}
