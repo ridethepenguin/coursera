@@ -1,6 +1,7 @@
-package org.coursera.algo005.mincut;
+package org.coursera.algo005.graph;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -8,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 public class Graph {
 	
@@ -16,19 +19,26 @@ public class Graph {
 	private List<Node> nodeList;
 	private Map<Integer, Edge> edges;
 	private List<Edge> edgeList;
+	
+	private boolean directed;
+	private TraversalDirection traversalDirection;
+	
 	private Random rng;
 	
-	public Graph() {
+	public Graph(boolean directed) {
 		this.nodes = new HashMap<Integer, Node>();
 		this.nodeList = new ArrayList<>();
 		this.edges = new HashMap<Integer, Edge>();
 		this.edgeList = new ArrayList<Edge>();
-		this.rng = new Random();
+		this.directed = directed;
+		this.traversalDirection = TraversalDirection.FORWARD;
+		this.rng = new Random();		
 	}
 	
-	public static Graph fromAdjacencyList(List<List<Integer>> adjacencyList) {
-		Graph g = new Graph();
+	public static Graph fromAdjacencyList(List<List<Integer>> adjacencyList, boolean directed) {
+		Graph g = new Graph(directed);
 		Set<String> alreadyCreatedEdges = new HashSet<String>();
+		int lastNodeCount = 0;
 		
 		for (List<Integer> row: adjacencyList) {
 			int headNodeId = row.get(0);
@@ -44,7 +54,13 @@ public class Graph {
 					}
 				}
 			}
+			if (g.getNodeCount() % 100 == 0 && lastNodeCount != g.getNodeCount()) {
+				System.out.printf("Graph has now %d nodes and %d edges...\n", g.getNodeCount(), g.getEdgeCount());
+				lastNodeCount = g.getNodeCount();
+			}
 		}
+		
+		System.out.printf("Successfully created graph with %d nodes and %d edges!\n", g.getNodeCount(), g.getEdgeCount());
 		
 		return g;
 	}
@@ -71,6 +87,16 @@ public class Graph {
 	
 	public Edge getEdge(int edgeId) {
 		return edges.get(edgeId);
+	}
+
+	public TraversalDirection getTraversalDirection() {
+		return traversalDirection;
+	}
+
+	public void setTraversalDirection(TraversalDirection traversalDirection) {
+		if (traversalDirection != null) {
+			this.traversalDirection = traversalDirection;
+		}		
 	}
 
 	public Node createNode() {
@@ -174,7 +200,7 @@ public class Graph {
 	}
 	
 	public Graph clone() {
-		Graph clone = new Graph();
+		Graph clone = new Graph(this.directed);
 		clone.nodeCounter = this.nodeCounter;
 		clone.edgeCounter = this.edgeCounter;
 		
@@ -239,6 +265,95 @@ public class Graph {
 		}		
 		
 		return minCut;
+	}
+	
+	private int dfs(Node currentNode, Node startNode, Set<Node> explored, Map<Integer, List<Node>> nodesByLeader, TreeMap<Integer, Node> finishingTimes, int currentFinishingTime, boolean firstPass) {
+		explored.add(currentNode);
+		
+		if (!firstPass) {
+			if (nodesByLeader.containsKey(startNode.getNodeId())) {
+				nodesByLeader.get(startNode.getNodeId()).add(currentNode);
+			} else {
+				List<Node> nodeList = new ArrayList<Node>();
+				nodeList.add(currentNode);
+				nodesByLeader.put(startNode.getNodeId(), nodeList);			
+			}
+		}		
+		
+		for (Edge edge: currentNode.getIncidentEdges().values()) {
+			if (getTraversalDirection().equals(TraversalDirection.FORWARD)) {
+				if (edge.getHead().equals(currentNode) && !explored.contains(edge.getTail())) {
+					currentFinishingTime = dfs(edge.getTail(), startNode, explored, nodesByLeader, finishingTimes, currentFinishingTime, firstPass);
+				}
+			} else { // traversalDirection == REVERSE
+				if (edge.getTail().equals(currentNode) && !explored.contains(edge.getHead())) {
+					currentFinishingTime = dfs(edge.getHead(), startNode, explored, nodesByLeader, finishingTimes, currentFinishingTime, firstPass);
+				}
+			}
+		}
+		
+		if (firstPass) {
+			currentFinishingTime++;
+			
+			finishingTimes.put(currentFinishingTime, currentNode);
+		}
+		
+		return currentFinishingTime;
+	}
+	
+	private void dfsLoop(Map<Integer, List<Node>> nodesByLeader, TreeMap<Integer, Node> finishingTimes, boolean firstPass) {
+		int currentFinishingTime = 0;
+		Set<Node> explored = new HashSet<Node>();
+		Node startNode = null;
+		Collection<Node> nodes = null;
+		
+		if (firstPass) {
+			nodes = getNodes();
+			setTraversalDirection(TraversalDirection.REVERSE);
+		} else {
+			nodes = finishingTimes.values();
+			setTraversalDirection(TraversalDirection.FORWARD);
+		}
+		
+		// TODO: avoid this copy!
+		List<Node> nodesList = new ArrayList<>(nodes);
+		
+		for (int i=nodesList.size()-1; i>=0; i--) {
+			Node currentNode = nodesList.get(i);
+			if (!explored.contains(currentNode)) {
+				startNode = currentNode;
+				// System.out.printf("Launching DFS from node: %d\n", startNode.getNodeId());
+				currentFinishingTime = dfs(currentNode, startNode, explored, nodesByLeader, finishingTimes, currentFinishingTime, firstPass);
+			}
+		}
+	}
+	
+	public int[] sccs() {
+		Map<Integer, List<Node>> nodesByLeader = new HashMap<>();
+		TreeMap<Integer, Node> finishingTimes = new TreeMap<>();
+		
+		// first pass
+		System.out.println("DFS-Loop: first pass");
+		dfsLoop(nodesByLeader, finishingTimes, true);
+		// second pass
+		System.out.println("DFS-Loop: second pass");
+		dfsLoop(nodesByLeader, finishingTimes, false);
+		
+		int[] sccs = new int[nodesByLeader.size()];
+		int i=0;
+		for (List<Node> sccMembers: nodesByLeader.values()) {
+			sccs[i] = sccMembers.size();
+			i++;
+		}
+		
+		Arrays.sort(sccs);
+		
+		return sccs;
+	}
+
+	public static enum TraversalDirection {
+		FORWARD,
+		REVERSE
 	}
 	
 }
