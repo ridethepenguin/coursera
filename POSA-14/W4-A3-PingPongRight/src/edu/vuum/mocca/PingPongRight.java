@@ -22,9 +22,6 @@ public class PingPongRight {
      * Latch that will be decremented each time a thread exits.
      */
     public static CountDownLatch mLatch = null;
-    
-    private static String mPingString;
-    private static String mPongString;
 
     /**
      * @class PlayPingPongThread
@@ -108,12 +105,7 @@ public class PingPongRight {
          */
         private void acquire() {
             // TODO fill in here
-        	SimpleSemaphore semaphore = null;
-        	if (stringToPrint.equals(mPingString)) {
-        		semaphore = this.semaphores[FIRST_SEMA];
-        	} else if (stringToPrint.equals(mPongString)) {
-        		semaphore = this.semaphores[SECOND_SEMA];
-        	}
+        	SimpleSemaphore semaphore = this.semaphores[FIRST_SEMA];
         	        	
         	try {
 				semaphore.acquire();
@@ -126,12 +118,7 @@ public class PingPongRight {
          * Method for releasing the appropriate SimpleSemaphore.
          */
         private void release() {
-        	SimpleSemaphore semaphore = null;
-        	if (stringToPrint.equals(mPingString)) {
-        		semaphore = this.semaphores[SECOND_SEMA];
-        	} else if (stringToPrint.equals(mPongString)) {
-        		semaphore = this.semaphores[FIRST_SEMA];
-        	}
+        	SimpleSemaphore semaphore = this.semaphores[SECOND_SEMA];
         	
         	semaphore.release();
         }
@@ -145,10 +132,6 @@ public class PingPongRight {
                                String pongString, 
                                String finishString, 
                                int maxIterations) throws InterruptedException {
-
-    	mPingString = pingString;
-    	mPongString = pongString;
-    	
         // TODO initialize this by replacing null with the appropriate
         // constructor call.
         mLatch = new CountDownLatch(2);
@@ -166,7 +149,7 @@ public class PingPongRight {
         // Create the ping and pong threads, passing in the string to
         // print and the appropriate SimpleSemaphores.
         PlayPingPongThread ping = new PlayPingPongThread(pingString, pingSema, pongSema, maxIterations);
-        PlayPingPongThread pong = new PlayPingPongThread(pongString, pingSema, pongSema, maxIterations);
+        PlayPingPongThread pong = new PlayPingPongThread(pongString, pongSema, pingSema, maxIterations);
 
         // TODO - Initiate the ping and pong threads, which will call
         // the run() hook method.
