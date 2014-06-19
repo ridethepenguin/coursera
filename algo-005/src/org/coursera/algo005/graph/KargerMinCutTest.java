@@ -1,6 +1,7 @@
 package org.coursera.algo005.graph;
 
 import java.util.List;
+import java.util.Map;
 
 public class KargerMinCutTest {
 
@@ -11,7 +12,7 @@ public class KargerMinCutTest {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		List<List<Integer>> adjacencyList = Utils.readAdjacencyListFromResource(RESOURCE_NAME, COLUMN_SEPARATOR);
+		Map<Integer, List<NodeAndLength>> adjacencyList = Utils.readAdjacencyListFromResource(RESOURCE_NAME, COLUMN_SEPARATOR, false);
 		
 		Graph g = Graph.fromAdjacencyList(adjacencyList, false);
 		

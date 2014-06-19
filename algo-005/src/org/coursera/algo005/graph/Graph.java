@@ -7,12 +7,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
-public class Graph {
+public class Graph { 
 	
 	private int nodeCounter = 0, edgeCounter = 0;
 	private Map<Integer, Node> nodes;
@@ -35,21 +35,22 @@ public class Graph {
 		this.rng = new Random();		
 	}
 	
-	public static Graph fromAdjacencyList(List<List<Integer>> adjacencyList, boolean directed) {
+	public static Graph fromAdjacencyList(Map<Integer, List<NodeAndLength>> adjacencyList, boolean directed) {
 		Graph g = new Graph(directed);
 		Set<String> alreadyCreatedEdges = new HashSet<String>();
 		int lastNodeCount = 0;
 		
-		for (List<Integer> row: adjacencyList) {
-			int headNodeId = row.get(0);
+		for (Entry<Integer, List<NodeAndLength>> entry: adjacencyList.entrySet()) {			
+			int headNodeId = entry.getKey();
+			List<NodeAndLength> row = entry.getValue();
 			if (row.size() > 1) {
-				for (int i=1; i<row.size(); i++) {
-					int tailNodeId = row.get(i);
+				for (int i=0; i<row.size(); i++) {
+					int tailNodeId = row.get(i).nodeId;
 					String pairId = (headNodeId <= tailNodeId) ? (headNodeId + "-" + tailNodeId) : (tailNodeId + "-" + headNodeId);
 					if (directed || !alreadyCreatedEdges.contains(pairId)) {
 						Node headNode = g.createNode(headNodeId);
 						Node tailNode = g.createNode(tailNodeId);
-						g.createEdge(headNode, tailNode);
+						g.createEdge(headNode, tailNode, row.get(i).length);
 						alreadyCreatedEdges.add(pairId);
 					} else {
 						System.out.printf("Edge %s has been already created! Skipping...\n", pairId);
@@ -125,22 +126,30 @@ public class Graph {
 	}
 	
 	public Edge createEdge(Node head, Node tail) {
+		return createEdge(head, tail, Edge.DEFAULT_LENGTH);
+	}
+	
+	public Edge createEdge(int edgeId, Node head, Node tail) {
+		return createEdge(edgeId, head, tail, Edge.DEFAULT_LENGTH);
+	}
+	
+	public Edge createEdge(Node head, Node tail, int length) {
 		int edgeId = 0;
 		do {
 			edgeId = ++edgeCounter;
 		} while (getEdge(edgeId) != null);
 		
-		return createEdge(edgeId, head, tail);
+		return createEdge(edgeId, head, tail, length);
 	}
 	
-	public Edge createEdge(int edgeId, Node head, Node tail) {
+	public Edge createEdge(int edgeId, Node head, Node tail, int length) {
 		if (getEdge(edgeId) == null) {
 			// avoid self-loops
 			if (head == tail || head.getNodeId() == tail.getNodeId()) {
 				return null;
 			}
 			
-			Edge newEdge = new Edge(edgeId, head, tail);
+			Edge newEdge = new Edge(edgeId, head, tail, length);
 			head.getIncidentEdges().put(edgeId, newEdge);
 			tail.getIncidentEdges().put(edgeId, newEdge);
 			
@@ -351,6 +360,56 @@ public class Graph {
 		Arrays.sort(sccs);
 		
 		return sccs;
+	}
+	
+	public Map<Node, Integer> dijkstraShortestPath(int sourceNodeId) {
+		final int MAX_DISTANCE = 1000000;
+		
+		Map<Node, Integer> shortestPathDistance = new HashMap<>();
+		Set<Node> visited = new HashSet<>();
+		for (Node node: getNodes()) {
+			if (node.getNodeId() != sourceNodeId) {
+				shortestPathDistance.put(node, MAX_DISTANCE);
+			} else {
+				shortestPathDistance.put(node, 0);
+				visited.add(node);
+			}			
+		}
+		
+		boolean end = false;
+		while (!end) {
+			int minLength = MAX_DISTANCE;
+			Node minLengthNode = null;
+			for (Node node: visited) {
+				for (Edge edge: node.getIncidentEdges().values()) {
+					boolean isHead = edge.getHead().equals(node);
+					Node otherNode = (isHead) ? edge.getTail() : edge.getHead();
+					boolean frontier = false;										
+					if (directed) {
+						frontier = isHead && !visited.contains(edge.getTail());
+					} else {						
+						frontier = !visited.contains(otherNode);
+					}
+					if (frontier) {
+						// edge is at the frontier
+						int pathLength = shortestPathDistance.get(node) + edge.getLength();
+						if (pathLength < minLength) {
+							minLength = pathLength;
+							minLengthNode = otherNode;
+						}
+					}
+				}
+			}
+			if (minLengthNode != null) {
+				shortestPathDistance.put(minLengthNode, minLength);
+				visited.add(minLengthNode);
+				end = visited.size() == getNodeCount();
+			} else {
+				end = true;
+			}
+		}
+		
+		return shortestPathDistance;
 	}
 
 	public static enum TraversalDirection {
